@@ -1,0 +1,13 @@
+OTPOTG is a standalone, offline decimal one-time pad experiment for Android.
+
+Enter physical dice rolls to create a local pad, encrypt text using decimal
+digit-wise addition modulo 10, and decrypt using separately provided key slips.
+Includes local pad management, message padding, and offline export using the
+Android document picker.
+
+The application has no Internet permission, advertisements, analytics,
+accounts, or automatic synchronization.
+
+IMPORTANT: This is experimental, unaudited cryptographic software. The app
+does not authenticate messages, and pad data is stored in app-private plaintext
+storage. Never reuse pad digits or use test-generated digits for real secrets.

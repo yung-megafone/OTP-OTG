@@ -1,0 +1,35 @@
+# Gradle / Android Studio
+.gradle/
+.idea/
+**/build/
+local.properties
+*.iml
+.cxx/
+.externalNativeBuild/
+captures/
+# Keys, signing material, secrets
+*.jks
+*.keystore
+*.p12
+*.pem
+*.key
+# OTP / sensitive exports
+*.otp
+*key-slip*.txt
+*.dice_otp_poc.json
+# Test artifacts
+core-tests/classes/
+
+# LAD local logs
+lad-logs/
+
+# OTPOTG local files
+.gradle/
+.idea/
+lad-logs/
+local.properties
+**/build/
+*.apk
+*.aab
+*.jks
+*.keystore
