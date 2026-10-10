@@ -1,55 +1,122 @@
-# OTPOTG — F-Droid-oriented Android starter POC (v0.1.1)
+# OTPOTG
 
-**Native Java Android application, entirely functional on its own without a PC after installation.**
+**Offline, dice-powered one-time-pad messaging for Android.**
 
-## Open in Android Studio
+OTPOTG is a free and open-source Android application from **NoRec** that takes the arithmetic and formatting work out of using a decimal one-time pad. You supply the pad digits—ideally by rolling a physical ten-sided die—and OTPOTG handles message encoding, digit-wise encryption and decryption, and local pad bookkeeping.
 
-1. Unzip `OTPOTG.zip`.
-2. In Android Studio choose **File → Open** and select the extracted `OTPOTG` folder.
-3. Allow Gradle to sync (the *development machine* may need to download Android Gradle Plugin and Android SDK components; the **app itself never needs internet**).
-4. This archive includes Gradle wrapper **configuration only**, not the executable wrapper scripts or JAR. Choose a locally installed **Gradle 8.9** distribution in Gradle settings, or run `gradle wrapper --gradle-version 8.9` from the project directory using installed Gradle, then sync. See `gradle/wrapper/README.md`.
-5. Build/Run on an emulator or connected Android device, or choose **Build → Build APK(s)** to generate a debug APK. This archive contains source, **not a precompiled APK**.
+No accounts. No servers. No network permission. No automatic key generation for real-world use.
 
-AGP: 8.7.3; compileSdk: 35; targetSdk: 34; minSdk: 26; Java 17.
+> [!WARNING]
+> **Experimental software — not independently security audited. Do not rely on OTPOTG to protect important secrets.** One-time pads are unforgiving: biased, disclosed, or reused pad material can compromise confidentiality. The current implementation also has operational limitations described below.
 
-## Features included
+## What it does
 
-- Standalone pad store: manually add physical D10 digits.
-- Encrypt & Prune: consumes 12 ID digits plus message-length pad digits; persists the remaining suffix to app-private JSON storage.
-- Decrypt using the matching key slip (does not need the database).
-- Windows DICE / OTP v0.17+ **V2** compatible decimal message encoding: `999998` + codec ID (0 UTF-8, 1 ASCII, 2 Latin-1) + 3-digit byte offset + 9-digit byte count + transformed DEC3 bytes + zero padding to configured block.
-- V1 padded and original legacy UTF-8 DEC3 decryption compatibility.
-- Padding block settings 5/30/300/600, byte offset 0–255, charset selection.
-- Gauge capped visually at 100%; warning at 100% and pink at 200%; actual percentages still shown.
-- Development-only synthetic digits and persistent test-data warning.
-- Retire remaining pad and purge database controls.
-- Local ciphertext and key-slip export through Android's document picker.
-- Offline core self-test in Settings → Dev.
+- **Manual pad entry:** Record decimal digits obtained from physical D10 rolls.
+- **Encrypt & Prune:** Encode plaintext, encrypt it with pad digits, and remove consumed digits from the locally stored pad.
+- **Key-slip decryption:** Decrypt a message using its matching key slip, without needing the sender's pad database.
+- **Local exports:** Save ciphertext and key slips using Android's document picker.
+- **Configurable encoding:** UTF-8, ASCII, and Latin-1 options; configurable byte offsets and padding blocks.
+- **Legacy compatibility:** Supports the V2 decimal format and decryption of supported older V1/DEC3 formats from the desktop DICE / OTP project.
+- **Local diagnostics:** Offline self-tests and synthetic digits for development and demonstrations.
+- **Offline by design:** No `INTERNET` permission, analytics, advertising SDKs, accounts, or cloud synchronization.
 
-## Security and operational limitations
+## Screenshots
 
-**Experimental software, not security-audited. Do not use for important secrets.**
+A look at OTPOTG running on Android. These screenshots show the early proof-of-concept interface, not a final security-audited release.
 
-- `android.permission.INTERNET` is deliberately absent. No telemetry, advertising, networking, or cloud sync code is present. OS and other apps may still communicate.
-- Android automatic app backup is disabled; users control any external exports.
-- Keys and pad digits are stored as plaintext in app-private storage. A compromised or rooted device can expose them. Deletion/pruning does not guarantee forensic flash erasure.
-- OTP confidentiality requires genuinely uniform, independent, secret, never-reused digits. Pseudorandom development digits are not physical rolls.
-- Decimal OTP provides **no message authentication**; ciphertext can be modified without detection.
-- Current workflow prunes on encryption and shows the only remaining key slip in memory. **Export the key slip immediately**; crashes or app restarts before export can make messages unrecoverable.
-- Key-slip export writes plaintext key material to the user-selected destination; protect it. Clipboard use, if manually selected, may expose secrets to the system/other apps.
-- No automatic pad synchronization. **No pad database import/export UI in this starter POC.** For two-way communications use independent directional pads; never let multiple devices encrypt from the same allocation range.
-- Existing Windows JSON database is not directly imported. The **ciphertext and key-slip formats**, not the database file layout, are interoperable.
-- All source files are Java/Android SDK; no runtime libraries, analytics SDKs, or networking dependencies.
+| Pad Store | Encrypt |
+|:---:|:---:|
+| <img src="docs/screenshots/01-pad-store.jpg" alt="OTPOTG Pad Store showing available and retired digits and manual D10 entry" width="270"> | <img src="docs/screenshots/02-encrypt.jpg" alt="OTPOTG Encrypt screen with message input, capacity gauge, and local export buttons" width="270"> |
+| **Decrypt** | **Settings** |
+| <img src="docs/screenshots/03-decrypt.jpg" alt="OTPOTG Decrypt screen with ciphertext and key slip inputs" width="270"> | <img src="docs/screenshots/04-settings.jpg" alt="OTPOTG settings for padding, character encoding, byte offset, and database management" width="270"> |
 
-## Compatibility detail
+The screenshots are also included in `fastlane/metadata/android/en-US/images/phoneScreenshots/` for future F-Droid listing metadata. They contain demonstration UI only; do not publish screenshots showing actual secret pad material or key slips.
 
-The first 12 decimal digits of ciphertext are the message ID. The following digits are ciphertext.
-The key slip contains the matching message ID and exactly one pad digit per ciphertext digit.
-Decrypt by decimal digitwise subtraction modulo 10, then parse the V2/V1/legacy payload.
+## How the dice-based workflow works
 
-## Testing
+1. **Generate your pad outside the app.** Roll a ten-sided die and record each result as one decimal digit (`0`–`9`). For real OTP use, the digits must be independent, uniformly distributed, and kept secret.
+2. **Enter the digits.** OTPOTG stores the entered pad in Android app-private storage.
+3. **Encrypt a message.** OTPOTG converts the message into its decimal representation, applies padding, and combines each encoded digit with a pad digit using addition modulo 10. It also consumes a 12-digit message identifier from the pad.
+4. **Export both outputs.** Save the ciphertext for delivery and the corresponding key slip for the intended recipient, using appropriately secure *separate* arrangements.
+5. **Decrypt.** The recipient uses the matching key slip to reverse the digit-wise operation and recover the text.
 
-`core-tests/CoreSmokeTest.java` runs 40 standalone Java core tests. From the project root:
+**Important:** The app does **not** arrange secure delivery of pads or key slips. Never send the key slip alongside its ciphertext over the same exposed channel and assume the message remains secret. For two-way messaging, use separate directional pad allocations. Never encrypt two messages with the same pad digits.
+
+### A tiny decimal example
+
+For three already-encoded digits:
+
+```text
+Encoded digits:  123
+Pad digits:      789
+Ciphertext:      802   (addition modulo 10, digit by digit)
+Recovered:       123   (subtraction modulo 10)
+```
+
+This illustrates the arithmetic only. Real OTPOTG messages include format metadata, a message identifier, and padding.
+
+## Current development status
+
+**Early proof of concept (POC).** The app has been built and run during development, but it has **not** undergone an independent cryptographic or security audit and is **not yet published on F-Droid**.
+
+The standalone core test suite contains **40 tests**; Android also provides a local self-test. Passing round-trip tests does not establish cryptographic security.
+
+### Known limitations and security considerations
+
+- **Crash-sensitive key slips:** Encryption consumes and persists pad digits before the user has necessarily exported the key slip. A crash or restart at the wrong moment can leave a ciphertext impossible to decrypt. A crash-safe consumption/export workflow is a release priority.
+- **No authentication:** Decimal OTP encryption does not authenticate messages or prevent undetected ciphertext modification.
+- **Pad storage:** Pad digits and key slips are sensitive. App-private storage is not protection against a compromised or rooted device. Exported files are controlled by their destination and may be exposed by other apps or backups.
+- **Flash deletion:** Pruning or deleting stored digits does not guarantee forensic erasure from flash memory.
+- **No synchronization:** OTPOTG does not sync pad allocations between devices. The user is responsible for safe distribution and preventing reuse.
+- **Synthetic test data:** Development-generated digits are **not** a substitute for independently generated physical randomness. Never use them for real secrets.
+- **Database compatibility:** Desktop ciphertext/key-slip format compatibility does **not** mean the desktop JSON pad database can be imported. This POC does not include a pad-database import/export UI.
+
+## Build from source
+
+### Requirements
+
+- Android Studio and Android SDK Platform **35**
+- **JDK 17** (for this project's Gradle 8.9 / Android Gradle Plugin 8.7.3 toolchain)
+- Gradle **8.9**, using the repository's Gradle wrapper
+- Windows, Linux, or macOS for normal Android development
+
+The app targets Android API 34, compiles against API 35, and supports **Android 8.0 (API 26) and later**.
+
+Clone the repository and open its root directory in Android Studio, or build from a terminal:
+
+**Windows (PowerShell):**
+
+```powershell
+.\gradlew.bat :app:assembleDebug --console=plain
+```
+
+**Linux / macOS:**
+
+```bash
+./gradlew :app:assembleDebug --console=plain
+```
+
+The debug APK is generated at:
+
+```text
+app/build/outputs/apk/debug/app-debug.apk
+```
+
+You can install it on a test phone with Android Debug Bridge (`adb install -r <path-to-apk>`) or transfer the APK and sideload it. A debug APK is intended for development; it is not a reproducible, signed F-Droid release.
+
+> The Gradle wrapper scripts, wrapper properties, and `gradle/wrapper/gradle-wrapper.jar` must all be present in a complete Git checkout. Do not commit `local.properties`, build outputs, signing keys, or private pad data.
+
+### Run the standalone core tests
+
+**Windows (PowerShell):**
+
+```powershell
+New-Item -ItemType Directory -Force core-tests/classes | Out-Null
+javac -d core-tests/classes app/src/main/java/us/norec/otpotg/OtpCore.java core-tests/CoreSmokeTest.java
+java -cp core-tests/classes CoreSmokeTest
+```
+
+**Linux / macOS:**
 
 ```bash
 mkdir -p core-tests/classes
@@ -57,18 +124,48 @@ javac -d core-tests/classes app/src/main/java/us/norec/otpotg/OtpCore.java core-
 java -cp core-tests/classes CoreSmokeTest
 ```
 
-The core tests passed in the build environment. **An Android SDK/Gradle build and device GUI test were not possible in the current environment**, so you may encounter integration issues when first syncing in Android Studio.
+### LAD — Lazy Ass Developer (Windows)
 
-## License and F-Droid
+Windows developers can launch `Launch-LAD.cmd` for a PowerShell/WinForms interface to check the environment, run core tests, inspect F-Droid readiness, build APKs, and read device logs. See [LAD-README.md](LAD-README.md). LAD is a local development utility; it is **not included in the Android APK**.
 
-The source code is **GPL-3.0-or-later**. See `LICENSE` and `CONTRIBUTORS.md`.
-The F-Droid listing draft is in `fastlane/metadata/android/en-US/`.
-The submission checklist is in `docs/F-DROID.md`.
-This project is **not currently listed on F-Droid**; public hosting, a complete
-Gradle wrapper, device testing, screenshots, release tagging, and submission
-are still required. The app's network-free design does not prohibit the build
-computer from downloading Gradle dependencies.
+## Project layout
 
-## LAD developer launcher (Windows)
+```text
+app/                 Android application and launcher icons
+core-tests/          Standalone Java OTP core tests
+docs/F-DROID.md      F-Droid preparation checklist
+fastlane/            Android store-listing metadata
+gradle/              Gradle wrapper configuration
+LAD.ps1              Windows developer helper
+Launch-LAD.cmd       LAD launcher
+LICENSE              GPLv3 license text
+```
 
-Double-click `Launch-LAD.cmd` to open the **Lazy Ass Developer** GUI. See [LAD-README.md](LAD-README.md) for actions and requirements.
+## Privacy and permissions
+
+OTPOTG does not request Android's `INTERNET` permission and does not contain application networking, advertising, or telemetry code. Automatic Android app backup is disabled in the manifest. **That does not mean the operating system, file picker, or external document destinations are inherently private.** Inspect where sensitive material is exported and how that destination handles backups and sharing.
+
+Gradle may download build dependencies on your development computer; that is separate from networking by the installed Android app.
+
+## F-Droid roadmap
+
+The goal is publication through [F-Droid](https://f-droid.org/). Before submission, the project needs a public, tagged, buildable source release; complete and verified Gradle wrapper; appropriate metadata/screenshots; dependency and permission review; real-device testing; and resolution of key-slip crash-safety concerns. See [docs/F-DROID.md](docs/F-DROID.md) for the current checklist.
+
+**Being open source or hosted on GitHub does not mean F-Droid has approved or listed the app.**
+
+## Contributing
+
+Issues and pull requests are welcome, especially for format compatibility, test coverage, accessibility, Android compatibility, and safer pad-consumption handling. Please avoid attaching real pad material, key slips, private messages, or sensitive device logs to public issues.
+
+See [CONTRIBUTORS.md](CONTRIBUTORS.md) for contributor information.
+
+## License
+
+**GPL-3.0-or-later** — GNU General Public License, version 3 or (at your option) any later version. See [LICENSE](LICENSE).
+
+Copyright and contributor notices should be preserved in redistributed versions.
+
+---
+
+**NoRec · OTPOTG**  
+*Your dice. Your pad. Your responsibility.*
